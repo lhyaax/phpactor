@@ -3,228 +3,69 @@
 namespace Phpactor\Complete\Provider;
 
 use PhpParser\Node\Expr;
-use BetterReflection\Reflector\Reflector;
 use Phpactor\Complete\ProviderInterface;
 use Phpactor\Complete\Suggestions;
 use PhpParser\NodeAbstract;
 use Phpactor\Complete\Scope;
-use BetterReflection\Reflection\ReflectionClass;
-use BetterReflection\Reflector\Exception\IdentifierNotFound;
 use Phpactor\Complete\Suggestion;
-use BetterReflection\Reflection\ReflectionMethod;
-use BetterReflection\Reflection\ReflectionVariable;
-use phpDocumentor\Reflection\DocBlockFactory;
-use phpDocumentor\Reflection\Types;
-use BetterReflection\TypesFinder\FindTypeFromAst;
-use phpDocumentor\Reflection\Types\Object_;
+use DTL\WorseReflection\Reflection\ReflectionOffset;
+use DTL\WorseReflection\Type;
+use PhpParser\Node;
+use DTL\WorseReflection\Reflector;
 
 class FetchProvider implements ProviderInterface
 {
     /**
-     * @var DocBlockFactory
+     * @var Reflector
      */
-    private $docBlockFactory;
+    private $reflector;
 
     public function __construct(Reflector $reflector)
     {
         $this->reflector = $reflector;
-        $this->docBlockFactory = DocBlockFactory::createInstance();
     }
 
-    public function canProvideFor(Scope $scope): bool
+    public function canProvideFor(ReflectionOffset $offset): bool
     {
-        // Currently only supporting class method fetch completion.
-        if ((string) $scope !== Scope::SCOPE_CLASS_METHOD) {
-            return false;
-        }
+        $node = $offset->getNode()->top();
 
         return 
-            $scope->getNode() instanceof Expr\ClassConstFetch ||
-            $scope->getNode() instanceof Expr\PropertyFetch  || 
-            $scope->getNode() instanceof Expr\MethodCall;
+            $node instanceof Expr\ClassConstFetch ||
+            $node instanceof Expr\PropertyFetch  || 
+            $node instanceof Expr\MethodCall;
     }
 
-    public function provide(Scope $scope, Suggestions $suggestions)
+    public function provide(ReflectionOffset $offset, Suggestions $suggestions)
     {
-        $node = $scope->getNode();
+        $node = $offset->getNode();
+
         if (
-            $scope->getNode() instanceof Expr\PropertyFetch ||
-            $scope->getNode() instanceof Expr\MethodCall
+            $node instanceof Expr\PropertyFetch ||
+            $node instanceof Expr\MethodCall
         ) {
-            // knock off "completion" node
+            // knock off the fake "completion" node
             $node = $scope->getNode()->var;
         }
 
-        $classReflection = $this->resolveReflectionClass(
-            $node,
-            $scope
-        );
+        $type = $offset->getType();
+        $classReflection = null;
+
+        if ($type === Type::class) {
+            $classReflection = $this->reflector->reflectClass(
+                $node->getType()->getClassName()
+            );
+        }
 
         if (null === $classReflection) { 
             return;
         }
 
         // populate the suggestions with the classes members.
-        $this->populateSuggestions($scope, $classReflection, $suggestions);
+        $this->populateSuggestions($classReflection, $suggestions);
     }
 
-    private function resolveReflectionClass(Expr $node, Scope $scope, ReflectionClass $reflectionClass = null)
+    private function populateSuggestions(ReflectionClass $reflectionClass, Suggestions $suggestions)
     {
-        if ($node instanceof Expr\PropertyFetch) {
-            $reflectionClass = $this->resolveReflectionClass($node->var, $scope, $reflectionClass);
-        }
-
-        if ($node instanceof Expr\MethodCall) {
-            $reflectionClass = $this->resolveReflectionClass($node->var, $scope, $reflectionClass);
-        }
-
-        // now we start from the base variable ...
-
-        if ($node instanceof Expr\ClassConstFetch) {
-            return $this->resolveReflectionFromConstantFetch($node, $scope, $reflectionClass);
-        }
-
-        if ($node instanceof Expr\Variable) {
-            return $this->resolveReflectionFromLocalVariables($node->name, $scope);
-        }
-
-        if ($node instanceof Expr\StaticCall) {
-            return $this->resolveReflectionFromStaticCall($node, $scope);
-        }
-
-        if (null === $reflectionClass) {
-            return;
-        }
-
-        if ($resolvedReflection = $this->resolvePropertyReflection($reflectionClass, $node->name)) {
-            return $resolvedReflection;
-        }
-
-        if ($resolvedReflection = $this->resolveMethodReflection($reflectionClass, $node->name)) {
-            return $resolvedReflection;
-        }
-    }
-
-    private function resolveReflectionFromConstantFetch(Expr\ClassConstFetch $node, Scope $scope)
-    {
-        // TODO: For god sakes generalize this...
-        $reflectionClass = $this->reflector->reflect($scope->getClassFqn());
-        $name = (string) $node->class;
-
-        if ($name === 'self') {
-            $reflectionClass = $this->reflector->reflect($scope->getClassFqn());
-            return $reflectionClass;
-        }
-
-        return $this->reflectionTypeFromName($reflectionClass, $name);
-
-    }
-
-    private function resolveReflectionFromStaticCall(Expr\StaticCall $node, Scope $scope)
-    {
-        $reflectionClass = $this->reflector->reflect($scope->getClassFqn());
-        $reflectionClass = $this->reflectionTypeFromName($reflectionClass, (string) $node->class);
-
-        if (false === $reflectionClass->hasMethod($node->name)) {
-            return;
-        }
-
-        $method = $reflectionClass->getMethod($node->name);
-
-        if (false === $method->isStatic()) {
-            return;
-        }
-
-        return $this->tryToReflectClass($method->getReturnType());
-    }
-
-    private function resolveReflectionFromLocalVariables(string $name, Scope $scope)
-    {
-        $reflectionClass = $this->reflector->reflect($scope->getClassFqn());
-
-        if ($name === 'this') {
-            return $reflectionClass;
-        }
-
-        $reflectionVariables = $reflectionClass->getMethod($scope->getScopeNode()->name)->getVariables();
-
-        $reflection = $reflectionClass;
-        foreach ($reflectionVariables as $reflectionVariable) {
-            if ($name !== $reflectionVariable->getName()) {
-                continue;
-            }
-
-            $type = $reflectionVariable->getType();
-
-            // ignore primitives (i.e. non-objects)
-            if (null === $type || $type->isBuiltin()) {
-                continue;
-            }
-
-            $resolvedReflection = $this->tryToReflectClass($type);
-
-            if (null === $reflection) {
-                continue;
-            }
-
-            return $resolvedReflection;
-        }
-    }
-
-    private function resolvePropertyReflection(ReflectionClass $reflection, string $name)
-    {
-        if (false === $reflection->hasProperty($name)) {
-            if ($parentClass = $reflection->getParentClass()) {
-                return $this->resolvePropertyReflection($parentClass, $name);
-            }
-
-            return;
-        }
-
-        $property = $reflection->getProperty($name);
-
-        if ($property->getDocComment()) {
-            $types = $property->getDocBlockTypeStrings();
-        } else {
-            return;
-        }
-
-        foreach ($types as $type) {
-            if (null === $reflection = $this->tryToReflectClass($type)) {
-                continue;
-            }
-
-            return $reflection;
-        }
-    }
-
-    private function resolveMethodReflection(ReflectionClass $reflectionClass, string $name)
-    {
-        if (false === $reflectionClass->hasMethod($name)) {
-            if ($parentClass = $reflectionClass->getParentClass()) {
-                return $this->resolveMethodReflection($parentClass, $name);
-            }
-
-            return;
-        }
-
-        $method = $reflectionClass->getMethod($name);
-
-        return $this->tryToReflectClass($method->getReturnType());
-    }
-
-    private function tryToReflectClass($classFqn)
-    {
-        try {
-            return $this->reflector->reflect($classFqn);
-        } catch (IdentifierNotFound $exception) {
-            // TODO: Log error here.
-        }
-    }
-
-    private function populateSuggestions(Scope $scope, ReflectionClass $reflectionClass, Suggestions $suggestions)
-    {
-        $isStaticNode = $scope->isNodeStatic();
         $methods = $reflectionClass->getMethods();
 
         foreach ($methods as $method) {

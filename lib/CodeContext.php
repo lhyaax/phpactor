@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Phpactor;
 
+use DTL\WorseReflection\Source;
+
 class CodeContext
 {
     private $source;
@@ -14,7 +16,7 @@ class CodeContext
     {
     }
 
-    public static function create(string $path = null, string $source, int $offset)
+    public static function create(Source $source, int $offset)
     {
         $context = new self();
         $context->path = $path;
@@ -24,7 +26,7 @@ class CodeContext
         return $context;
     }
 
-    public function getSource(): string
+    public function getSource(): Source
     {
         return $this->source;
     }

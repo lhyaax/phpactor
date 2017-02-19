@@ -4,12 +4,11 @@ namespace Phpactor\Complete;
 
 use Phpactor\Reflection\ReflectorInterface;
 use Phpactor\Complete\Provider\VariableProvider;
-use PhpParser\Lexer;
-use PhpParser\ParserFactory;
 use Phpactor\Complete\ScopeResolver;
 use Phpactor\Complete\ScopeFactory;
 use Phpactor\Complete\Suggestions;
 use Phpactor\CodeContext;
+use DTL\WorseReflection\Reflector;
 
 class Completer
 {
@@ -21,25 +20,33 @@ class Completer
     /**
      * @var ScopeFactory
      */
-    private $scopeFactory;
+    private $reflector;
 
-    public function __construct(ScopeFactory $scopeFactory, array $providers)
+    public function __construct(Reflector $reflector, array $providers)
     {
         $this->providers = $providers;
-        $this->scopeFactory = $scopeFactory;
+        $this->reflector = $reflector;
     }
 
     public function complete(CodeContext $codeContext): Suggestions
     {
-        $scope = $this->scopeFactory->create($codeContext);
         $suggestions = new Suggestions();
 
+        $offset = $this->reflector->reflectOffsetFromSource(
+            Source::fromString($codeContext->getSource()),
+            $codeContext->getOffset()
+        );
+
+        if (false === $offset->hasNode()) {
+            return $suggestions;
+        }
+
         foreach ($this->providers as $provider) {
-            if (false === $provider->canProvideFor($scope)) {
+            if (false === $provider->canProvideFor($offset->getNode())) {
                 continue;
             }
 
-            $provider->provide($scope, $suggestions);
+            $provider->provide($offset, $suggestions);
         }
 
         return $suggestions;

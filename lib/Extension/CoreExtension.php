@@ -3,7 +3,6 @@
 namespace Phpactor\Extension;
 
 use Composer\Autoload\ClassLoader;
-use BetterReflection\SourceLocator\Type\ComposerSourceLocator;
 use PhpBench\DependencyInjection\ExtensionInterface;
 use PhpBench\DependencyInjection\Container;
 use Symfony\Component\Console\Application;
@@ -18,10 +17,6 @@ use Phpactor\Complete\Completer;
 use Phpactor\Complete\Provider\VariableProvider;
 use BetterReflection\Reflector\ClassReflector;
 use Phpactor\Complete\Provider\FetchProvider;
-use Phpactor\Complete\ScopeFactory;
-use BetterReflection\SourceLocator\Type\StringSourceLocator;
-use BetterReflection\SourceLocator\Type\AggregateSourceLocator;
-use BetterReflection\SourceLocator\Type\PhpInternalSourceLocator;
 use Phpactor\Console\Command\GenerateSnippetCommand;
 use Phpactor\Util\ClassUtil;
 use Phpactor\Generation\Snippet\MissingMethodsGenerator;
@@ -31,6 +26,13 @@ use Phpactor\Generation\Snippet\MissingPropertiesGenerator;
 use Phpactor\Generation\Snippet\ClassGenerator;
 use Phpactor\Generation\SnippetCreator;
 use Phpactor\Composer\ClassNameResolver;
+use DTL\WorseReflection\SourceLocator\StringSourceLocator;
+use DTL\WorseReflection\Reflector;
+use PhpParser\ParserFactory;
+use PhpParser\Lexer;
+use DTL\WorseReflection\SourceContextFactory;
+use DTL\WorseReflection\Source;
+use DTL\WorseReflection\SourceLocator\ComposerSourceLocator;
 
 class CoreExtension implements ExtensionInterface
 {
@@ -58,10 +60,6 @@ class CoreExtension implements ExtensionInterface
 
     private function registerComplete(Container $container)
     {
-        $container->register('completer.scope_factory', function ($container) {
-            return new ScopeFactory();
-        });
-
         $container->register('completer.provider.variables', function ($container) {
             return new VariableProvider($container->get('reflector'));
         });
@@ -70,10 +68,11 @@ class CoreExtension implements ExtensionInterface
         });
         $container->register('completer', function (Container $container) {
             return new Completer(
-                $container->get('completer.scope_factory'), [
-                $container->get('completer.provider.variables'),
-                $container->get('completer.provider.property_fetch')
-            ]);
+                $container->get('reflector'), [
+                    $container->get('completer.provider.variables'),
+                    $container->get('completer.provider.property_fetch')
+                ]
+            );
         });
     }
 
@@ -98,18 +97,33 @@ class CoreExtension implements ExtensionInterface
 
     private function registerMisc(Container $container)
     {
-        $container->register('reflector', function (Container $container) {
-            $locators = [];
+        $container->register('php_parser', function (Container $container) {
+            $lexer = new Lexer([
+                'usedAttributes' => [
+                    'comments',
+                    'startLine',
+                    'endLine',
+                    'startFilePos',
+                    'endFilePos'
+                ]
+            ]);
 
+            return (new ParserFactory)->create(ParserFactory::PREFER_PHP7, $lexer, []);
+        });
+
+        $container->register('reflector', function (Container $container) {
             // HACK: for testing purposes ...
             if ($source = $container->getParameter('source')) {
-                $locators[] = new StringSourceLocator($source);
+                $locator = new StringSourceLocator(Source::fromString($source));
+            } else {
+                $locator = new ComposerSourceLocator($classLoader);
             }
-            $classLoader = $container->get('composer.class_loader');
-            $locators[] = new ComposerSourceLocator($classLoader);
-            $locators[] = new PhpInternalSourceLocator($classLoader);
 
-            return new ClassReflector(new AggregateSourceLocator($locators));
+            $classLoader = $container->get('composer.class_loader');
+
+            $sourceContextFactory = new SourceContextFactory($container->get('php_parser'));
+
+            return new Reflector($locator, $sourceContextFactory);
         });
 
         $container->register('util.class', function () {

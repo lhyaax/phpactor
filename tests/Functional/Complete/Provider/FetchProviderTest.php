@@ -6,6 +6,7 @@ use Phpactor\Tests\Functional\ContainerTestCase;
 use Phpactor\Complete\Provider\FetchProvider;
 use Phpactor\Complete\Suggestions;
 use Phpactor\CodeContext;
+use DTL\WorseReflection\Source;
 
 class FetchProviderTest extends ContainerTestCase
 {
@@ -25,14 +26,17 @@ class FetchProviderTest extends ContainerTestCase
             'source' => $source
         ]);
 
+        $reflector = $container->get('reflector');
+        $offset = $reflector->reflectOffsetInSource(
+            $offset,
+            Source::fromString($source)
+        );
         $provider = $container->get('completer.provider.property_fetch');
-        $context = CodeContext::create('file', $source, $offset);
-        $scope = $container->get('completer.scope_factory')->create($context);
 
         $suggestions = new Suggestions();
-        $this->assertTrue($provider->canProvideFor($scope), 'it can provide suggestions');
+        $this->assertTrue($provider->canProvideFor($offset), 'it can provide suggestions');
 
-        $provider->provide($scope, $suggestions);
+        $provider->provide($offset, $suggestions);
 
         $array = [];
         foreach ($suggestions as $suggestion) {
@@ -45,6 +49,18 @@ class FetchProviderTest extends ContainerTestCase
     public function provideProvider()
     {
         return [
+            'it should provide local methods' => [
+                <<<'EOT'
+class Foobar
+{
+    public function getFoobar()
+    {
+        $this->getF█oobar();
+    }
+}
+EOT
+                , [ 'getFoobar' ],
+            ],
             'it resolves named static property fetches' => [
                 <<<'EOT'
 class Foobar
@@ -96,18 +112,6 @@ class Foobar
     public function getFoobar()
     {
         $this->█
-    }
-}
-EOT
-                , [ 'getFoobar' ],
-            ],
-            'it should provide local methods' => [
-                <<<'EOT'
-class Foobar
-{
-    public function getFoobar()
-    {
-        $this->getFoo█
     }
 }
 EOT

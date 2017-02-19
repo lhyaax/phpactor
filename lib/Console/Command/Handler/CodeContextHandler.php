@@ -8,6 +8,8 @@ use Phpactor\CodeContext;
 use Phpactor\Util\FileUtil;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
+use DTL\WorseReflection\Source;
+use DTL\WorseReflection\Location;
 
 class CodeContextHandler
 {
@@ -23,15 +25,15 @@ class CodeContextHandler
         $name = $input->getArgument('fqnOrFname');
 
         if ($name) {
-            FileUtil::assertExists($name);
-            $contents = file_get_contents($name);
+            $source = Source::fromLocation(Location::fromPath($name));
         } else {
             $contents = '';
             while ($line = fgets(STDIN)) {
                 $contents .= $line;
             }
+            $source = Source::fromString($contents);
         }
 
-        return CodeContext::create($name, $contents, (int) $offset);
+        return CodeContext::create($source, $contents, (int) $offset);
     }
 }

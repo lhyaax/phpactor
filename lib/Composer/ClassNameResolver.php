@@ -6,7 +6,6 @@ namespace Phpactor\Composer;
 
 use Phpactor\Generation\SnippetGeneratorInterface;
 use Composer\Autoload\ClassLoader;
-use Phpactor\CodeContext;
 use Phpactor\Composer\ClassFqn;
 
 class ClassNameResolver

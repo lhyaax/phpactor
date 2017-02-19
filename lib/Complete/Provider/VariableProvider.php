@@ -26,9 +26,9 @@ class VariableProvider implements ProviderInterface
         $this->reflector = $reflector;
     }
 
-    public function canProvideFor(Scope $scope): bool
+    public function canProvideFor(ReflectionOffset $offset): bool
     {
-        $node = $scope->getNode();
+        $node = $offset->getNode();
 
         return $node instanceof Variable || $node instanceof ClassMethod;
     }

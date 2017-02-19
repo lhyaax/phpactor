@@ -3,7 +3,7 @@
     "minimum-stability": "dev",
     "require": {
         "symfony/console": "~2.7|^3.0",
-        "roave/better-reflection": "dev-variable_collector",
+        "dantleech/worse-reflection": "dev-master",
         "phpbench/container": "^1.0",
         "sylius/registry": "^0.19.0"
     },
