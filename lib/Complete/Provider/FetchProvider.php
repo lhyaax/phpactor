@@ -12,6 +12,10 @@ use DTL\WorseReflection\Reflection\ReflectionOffset;
 use DTL\WorseReflection\Type;
 use PhpParser\Node;
 use DTL\WorseReflection\Reflector;
+use DTL\WorseReflection\TypeResolver;
+use DTL\WorseReflection\Node\NodeAndAncestors;
+use DTL\WorseReflection\Reflection\ReflectionClass;
+use DTL\WorseReflection\Reflection\ReflectionMethod;
 
 class FetchProvider implements ProviderInterface
 {
@@ -20,9 +24,15 @@ class FetchProvider implements ProviderInterface
      */
     private $reflector;
 
+    /**
+     * @var TypeResolver
+     */
+    private $typeResolver;
+
     public function __construct(Reflector $reflector)
     {
         $this->reflector = $reflector;
+        $this->typeResolver = new TypeResolver($reflector);
     }
 
     public function canProvideFor(ReflectionOffset $offset): bool
@@ -37,22 +47,25 @@ class FetchProvider implements ProviderInterface
 
     public function provide(ReflectionOffset $offset, Suggestions $suggestions)
     {
-        $node = $offset->getNode();
+        $nodePath = $offset->getNode();
+        $node = $nodePath->top();
 
         if (
             $node instanceof Expr\PropertyFetch ||
             $node instanceof Expr\MethodCall
         ) {
-            // knock off the fake "completion" node
-            $node = $scope->getNode()->var;
+            $topNode = $nodePath->pop()->var;
+            $nodePath = $nodePath->all();
+            $nodePath[] = $topNode;
+            $nodePath = new NodeAndAncestors($nodePath);
         }
 
-        $type = $offset->getType();
+        $type = $this->typeResolver->resolveParserNode($offset->getFrame(), $nodePath->top());
         $classReflection = null;
 
-        if ($type === Type::class) {
+        if ($type->isClass()) {
             $classReflection = $this->reflector->reflectClass(
-                $node->getType()->getClassName()
+                $type->getClassName()
             );
         }
 
@@ -69,13 +82,13 @@ class FetchProvider implements ProviderInterface
         $methods = $reflectionClass->getMethods();
 
         foreach ($methods as $method) {
-            if ($method->isStatic() && false === $isStaticNode) {
-                continue;
-            }
+            //if ($method->isStatic() && false === $isStaticNode) {
+//                continue;
+ //           }
 
-            if (false === $method->isStatic() && $isStaticNode) {
-                continue;
-            }
+ //           if (false === $method->isStatic() && $isStaticNode) {
+ //               continue;
+ //           }
 
             $suggestions->add(Suggestion::create(
                 $method->getName(),
@@ -84,7 +97,7 @@ class FetchProvider implements ProviderInterface
             ));
         }
 
-        $scopeReflection = $this->reflector->reflect($scope->getClassFqn());
+        return $suggestions;
 
         $classSameInstance = $reflectionClass->getName() == $scope->getClassFqn();
 
@@ -139,29 +152,6 @@ class FetchProvider implements ProviderInterface
 
         $doc = $method->getName() . '(' . implode(', ', $parts) . '): ' . (string) $method->getReturnType();
 
-        if ($method->getDocComment()) {
-            $docObject = $this->docBlockFactory->create($method->getDocComment());
-
-            return $doc . PHP_EOL . '    ' . $docObject->getSummary();
-        }
-
         return $doc;
-    }
-
-
-    private function reflectionTypeFromName(ReflectionClass $reflectionClass, string $name)
-    {
-        // TODO: Refactor this
-        $type = (new FindTypeFromAst())->__invoke(
-            $name,
-            $reflectionClass->getLocatedSource(),
-            $reflectionClass->getNamespaceName()
-        );
-
-        if (false === $type instanceof Object_) {
-            return;
-        }
-
-        return $this->reflector->reflect($type->getFqsen());
     }
 }

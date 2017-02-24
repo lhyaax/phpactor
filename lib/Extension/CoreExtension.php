@@ -112,14 +112,14 @@ class CoreExtension implements ExtensionInterface
         });
 
         $container->register('reflector', function (Container $container) {
+
             // HACK: for testing purposes ...
             if ($source = $container->getParameter('source')) {
                 $locator = new StringSourceLocator(Source::fromString($source));
             } else {
+                $classLoader = $container->get('composer.class_loader');
                 $locator = new ComposerSourceLocator($classLoader);
             }
-
-            $classLoader = $container->get('composer.class_loader');
 
             $sourceContextFactory = new SourceContextFactory($container->get('php_parser'));
 

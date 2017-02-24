@@ -55,7 +55,7 @@ class Foobar
 {
     public function getFoobar()
     {
-        $this->getF█oobar();
+        $this->getF█oo
     }
 }
 EOT
