@@ -6,7 +6,6 @@ use Composer\Autoload\ClassLoader;
 use PhpBench\DependencyInjection\ExtensionInterface;
 use PhpBench\DependencyInjection\Container;
 use Symfony\Component\Console\Application;
-use Phpactor\Console\Command\ExplainCommand;
 use Phpactor\Reflection\ComposerReflector;
 use Doctrine\DBAL\Connection;
 use Phpactor\Storage\Storage;
@@ -33,6 +32,7 @@ use PhpParser\Lexer;
 use DTL\WorseReflection\SourceContextFactory;
 use DTL\WorseReflection\Source;
 use DTL\WorseReflection\SourceLocator\ComposerSourceLocator;
+use DTL\WorseReflection\SourceLocator\AggregateSourceLocator;
 
 class CoreExtension implements ExtensionInterface
 {
@@ -113,13 +113,16 @@ class CoreExtension implements ExtensionInterface
 
         $container->register('reflector', function (Container $container) {
 
+            $locators = [];
+            $classLoader = $container->get('composer.class_loader');
+            $locators[] = new ComposerSourceLocator($classLoader);
+
             // HACK: for testing purposes ...
             if ($source = $container->getParameter('source')) {
-                $locator = new StringSourceLocator(Source::fromString($source));
-            } else {
-                $classLoader = $container->get('composer.class_loader');
-                $locator = new ComposerSourceLocator($classLoader);
+                $locators[] = new StringSourceLocator(Source::fromString($source));
             }
+
+            $locator = new AggregateSourceLocator($locators);
 
             $sourceContextFactory = new SourceContextFactory($container->get('php_parser'));
 
@@ -161,7 +164,6 @@ class CoreExtension implements ExtensionInterface
         $container->register('application', function (Container $container) {
             $application = new Application(self::APP_NAME, self::APP_VERSION);
             $application->addCommands([
-                $container->get('command.explain'),
                 $container->get('command.complete'),
                 $container->get('command.generate'),
             ]);
@@ -176,13 +178,6 @@ class CoreExtension implements ExtensionInterface
         $container->register('command.complete', function (Container $container) {
             return new CompleteCommand($container->get('completer'));
         });
-
-        $container->register('command.explain', function (Container $container) {
-            return new ExplainCommand(
-                $container->get('reflector'),
-                $container->get('util.class')
-            );
-        });
     }
 
     private function registerGeneration(Container $container)
@@ -193,6 +188,8 @@ class CoreExtension implements ExtensionInterface
 
         $container->register('generator.registry.snippet', function (Container $container) {
             $registry = new SnippetGeneratorRegistry();
+
+            return $registry;
             $registry->register(
                 'implement_missing_methods',
                 $container->get('generator.snippet.implement_missing_methods')

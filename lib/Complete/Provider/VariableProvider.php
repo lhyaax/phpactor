@@ -13,19 +13,10 @@ use Phpactor\Complete\Suggestions;
 use Phpactor\Complete\ProviderInterface;
 use Phpactor\Complete\Suggestion;
 use PhpParser\Node\Stmt\ClassMethod;
+use DTL\WorseReflection\Reflection\ReflectionOffset;
 
 class VariableProvider implements ProviderInterface
 {
-    /**
-     * @var Reflector
-     */
-    private $reflector;
-
-    public function __construct(Reflector $reflector)
-    {
-        $this->reflector = $reflector;
-    }
-
     public function canProvideFor(ReflectionOffset $offset): bool
     {
         $node = $offset->getNode();
@@ -33,10 +24,10 @@ class VariableProvider implements ProviderInterface
         return $node instanceof Variable || $node instanceof ClassMethod;
     }
 
-    public function provide(Scope $scope, Suggestions $suggestions)
+    public function provide(ReflectionOffset $offset, Suggestions $suggestions)
     {
-        if (Scope::SCOPE_CLASS_METHOD === (string) $scope) {
-            $this->getClassMethodVars($scope, $suggestions);
+        foreach ($frame->all() as $name => $type) {
+            $suggestions->add(Suggestion::create('$' . $name, Suggestion::TYPE_VARIABLE));
         }
 
         $this->provideSuperGlobals($suggestions);
@@ -59,23 +50,6 @@ class VariableProvider implements ProviderInterface
             '$_ENV'
         ] as $superGlobal) {
             $suggestions->add(Suggestion::create($superGlobal, Suggestion::TYPE_VARIABLE, '*superglobal*'));
-        }
-    }
-
-    private function getClassMethodVars(Scope $scope, Suggestions $suggestions)
-    {
-        $suggestions->add(Suggestion::create('$this', Suggestion::TYPE_VARIABLE, $scope->getClassFqn()));
-        $suggestions->add(Suggestion::create('self', Suggestion::TYPE_VARIABLE, $scope->getClassFqn()));
-
-        $reflection = $this->reflector->reflect($scope->getClassFqn());
-        $method = $reflection->getMethod($scope->getScopeNode()->name);
-
-        foreach ($method->getVariables() as $variable) {
-            $suggestions->add(Suggestion::create(
-                '$' . $variable->getName(),
-                Suggestion::TYPE_VARIABLE,
-                (string) $variable->getTypeObject()
-            ));
         }
     }
 }

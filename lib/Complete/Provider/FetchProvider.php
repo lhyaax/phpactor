@@ -13,9 +13,12 @@ use DTL\WorseReflection\Type;
 use PhpParser\Node;
 use DTL\WorseReflection\Reflector;
 use DTL\WorseReflection\TypeResolver;
-use DTL\WorseReflection\Node\NodeAndAncestors;
+use DTL\WorseReflection\Node\NodePath;
 use DTL\WorseReflection\Reflection\ReflectionClass;
 use DTL\WorseReflection\Reflection\ReflectionMethod;
+use DTL\WorseReflection\Visibility;
+use DTL\WorseReflection\ClassName;
+use PhpParser\Node\Stmt\ClassLike;
 
 class FetchProvider implements ProviderInterface
 {
@@ -42,6 +45,7 @@ class FetchProvider implements ProviderInterface
         return 
             $node instanceof Expr\ClassConstFetch ||
             $node instanceof Expr\PropertyFetch  || 
+            $node instanceof Expr\StaticCall ||
             $node instanceof Expr\MethodCall;
     }
 
@@ -57,10 +61,35 @@ class FetchProvider implements ProviderInterface
             $topNode = $nodePath->pop()->var;
             $nodePath = $nodePath->all();
             $nodePath[] = $topNode;
-            $nodePath = new NodeAndAncestors($nodePath);
+            $nodePath = new NodePath($nodePath);
         }
 
-        $type = $this->typeResolver->resolveParserNode($offset->getFrame(), $nodePath->top());
+        // oh jesus ...
+        // use class of the const fetch
+        if ($node instanceof Expr\ClassConstFetch) {
+            $className = ClassName::fromParts($node->class->parts);
+            $className = $offset->getFrame()->getSourceContext()->resolveClassName($className);
+
+            if ($className->getShortName() === 'self') {
+                $classNode = $nodePath->seekBack(function ($node) {
+                    if ($node instanceof ClassLike) {
+                        return true;
+                    }
+
+                    return false;
+                });
+
+                $className = ClassName::fromString($classNode->name);
+            } else {
+                $className = ClassName::fromParts($node->class->parts);
+            }
+            
+            $className = $offset->getFrame()->getSourceContext()->resolveClassName($className);
+
+            $type = Type::class($className);
+        } else {
+            $type = $this->typeResolver->resolveParserNode($offset->getFrame(), $nodePath->top());
+        }
         $classReflection = null;
 
         if ($type->isClass()) {
@@ -74,62 +103,44 @@ class FetchProvider implements ProviderInterface
         }
 
         // populate the suggestions with the classes members.
-        $this->populateSuggestions($classReflection, $suggestions);
+        $this->populateSuggestions($nodePath->top(), $classReflection, $suggestions);
     }
 
-    private function populateSuggestions(ReflectionClass $reflectionClass, Suggestions $suggestions)
+    private function populateSuggestions(Node $node, ReflectionClass $reflectionClass, Suggestions $suggestions)
     {
-        $methods = $reflectionClass->getMethods();
-
-        foreach ($methods as $method) {
-            //if ($method->isStatic() && false === $isStaticNode) {
-//                continue;
- //           }
-
- //           if (false === $method->isStatic() && $isStaticNode) {
- //               continue;
- //           }
-
+        foreach ($reflectionClass->getVisibleProperties() as $property) {
             $suggestions->add(Suggestion::create(
-                $method->getName(),
-                Suggestion::TYPE_METHOD,
-                $this->formatMethodDoc($method)
+                $property->getName(),
+                Suggestion::TYPE_PROPERTY,
+                null // $doc
             ));
         }
 
-        return $suggestions;
-
-        $classSameInstance = $reflectionClass->getName() == $scope->getClassFqn();
-
-        // inherited properties currently not returned from BR:
-        // https://github.com/Roave/BetterReflection/issues/231
+        $originalReflectionClass = $reflectionClass;
         while ($reflectionClass) {
-            foreach ($reflectionClass->getProperties() as $property) {
-                $scopeIsInstance = $scopeReflection->isSubclassOf($reflectionClass->getName());
-                $scopeIsSame = $scopeReflection->getName() === $reflectionClass->getName();
 
-                if ($property->isPrivate() && false === $scopeIsSame) {
+            $methods = $reflectionClass->getMethods();
+            $isStaticNode = $node instanceof Expr\ClassConstFetch;
+
+            foreach ($methods as $method) {
+                if ($method->isStatic() && false === $isStaticNode) {
                     continue;
                 }
 
-                if ($property->isProtected() && (false === $scopeIsSame && false === $scopeIsInstance)) {
+                if (false === $method->isStatic() && $isStaticNode) {
                     continue;
-                }
-
-                $doc = null;
-                if ($property->getDocComment()) {
-                    $doc = $this->docBlockFactory->create($property->getDocComment())->getSummary();
                 }
 
                 $suggestions->add(Suggestion::create(
-                    $property->getName(),
-                    Suggestion::TYPE_PROPERTY,
-                    $doc
+                    $method->getName(),
+                    Suggestion::TYPE_METHOD,
+                    $this->formatMethodDoc($method)
                 ));
             }
 
-            $reflectionClass = $reflectionClass->getParentClass();
+            $reflectionClass = $reflectionClass->hasParentClass() ? $reflectionClass->getParentClass() : null;
         }
+
     }
 
     /**

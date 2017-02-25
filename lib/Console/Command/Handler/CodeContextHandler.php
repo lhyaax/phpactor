@@ -34,6 +34,6 @@ class CodeContextHandler
             $source = Source::fromString($contents);
         }
 
-        return CodeContext::create($source, $contents, (int) $offset);
+        return CodeContext::create($source, (int) $offset);
     }
 }

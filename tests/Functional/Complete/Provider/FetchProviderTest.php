@@ -63,6 +63,8 @@ EOT
             ],
             'it resolves named static property fetches' => [
                 <<<'EOT'
+use Phpactor\Tests\Functional\Example\ClassOne;
+
 class Foobar
 {
     public function getFoobar(FoobarInterface $foo)
@@ -71,7 +73,7 @@ class Foobar
     }
 }
 EOT
-                , [ 'getClassThree', 'classThree' ],
+                , [ 'classThree', 'getClassThree', ],
             ],
             'it resolves named static methods' => [
                 <<<'EOT'
@@ -83,7 +85,7 @@ class Foobar
 
     public function getFoobar(FoobarInterface $foo)
     {
-        Foobar::█
+        Foobar::x█
     }
 }
 EOT
@@ -99,7 +101,7 @@ class Foobar
 
     public function getFoobar(FoobarInterface $foo)
     {
-        self::█
+        self::xx█
     }
 }
 EOT
@@ -127,7 +129,7 @@ class Foobar extends ClassOne
     }
 }
 EOT
-                , [ 'getFoobar', 'classTwo' ],
+                , [ 'classTwo', 'getFoobar',  ],
             ],
             'it should provide inherited methods' => [
                 <<<'EOT'
@@ -139,7 +141,7 @@ class Foobar extends ClassTwo
     }
 }
 EOT
-                , [ 'getClassThree', 'getFoobar', 'classThree', ],
+                , [ 'classThree', 'getFoobar', 'getClassThree',  ],
             ],
 
             'it should provide local private properties' => [
@@ -154,7 +156,7 @@ class Foobar
     }
 }
 EOT
-                , [ 'getBarfoo', 'foobar' ],
+                , [ 'foobar', 'getBarfoo', ],
             ],
             'it should provide local protected properties' => [
                 <<<'EOT'
@@ -168,7 +170,7 @@ class Foobar
     }
 }
 EOT
-                , [ 'getBarfoo', 'foobar' ],
+                , [ 'foobar', 'getBarfoo' ],
             ],
             'it should provide local public properties' => [
                 <<<'EOT'
@@ -182,7 +184,7 @@ class Foobar
     }
 }
 EOT
-                , [ 'getBarfoo', 'foobar' ],
+                , [ 'foobar', 'getBarfoo' ],
             ],
             'it should NOT provide private inherited properties' => [
                 <<<'EOT'
@@ -194,7 +196,7 @@ class Foobar extends ClassOne
     }
 }
 EOT
-                , [ 'getBarfoo', 'classTwo' ],
+                , [ 'classTwo', 'getBarfoo' ],
             ],
             'it should provide properties on member property object' => [
                 <<<'EOT'
@@ -212,7 +214,7 @@ class Foobar
     }
 }
 EOT
-                , [ 'getClassThree', 'classThree' ],
+                , [ 'classThree', 'getClassThree' ],
             ],
             'it resolve a chain with properties and methods' => [
                 <<<'EOT'

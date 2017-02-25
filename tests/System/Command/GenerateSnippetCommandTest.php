@@ -11,6 +11,7 @@ class GenerateSnippetCommandTest extends SystemTestCase
      */
     public function testGenerate($generator, array $options = [])
     {
+        $this->markTestSkipped();
         $process = $this->exec(sprintf(
             'generate:snippet %s %s --options=\'%s\'',
             $generator,

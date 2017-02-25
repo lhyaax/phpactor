@@ -16,7 +16,6 @@ class AssignedPropertiesVisitor implements NodeVisitor
     {
     }
     
-    
     /**
      * {@inheritDoc}
      */

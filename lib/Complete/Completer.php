@@ -9,6 +9,7 @@ use Phpactor\Complete\ScopeFactory;
 use Phpactor\Complete\Suggestions;
 use Phpactor\CodeContext;
 use DTL\WorseReflection\Reflector;
+use DTL\WorseReflection\Source;
 
 class Completer
 {
@@ -32,9 +33,9 @@ class Completer
     {
         $suggestions = new Suggestions();
 
-        $offset = $this->reflector->reflectOffsetFromSource(
-            Source::fromString($codeContext->getSource()),
-            $codeContext->getOffset()
+        $offset = $this->reflector->reflectOffsetInSource(
+            $codeContext->getOffset(),
+            $codeContext->getSource()
         );
 
         if (false === $offset->hasNode()) {
@@ -42,7 +43,7 @@ class Completer
         }
 
         foreach ($this->providers as $provider) {
-            if (false === $provider->canProvideFor($offset->getNode())) {
+            if (false === $provider->canProvideFor($offset)) {
                 continue;
             }
 

@@ -10,7 +10,6 @@ class CodeContext
 {
     private $source;
     private $offset;
-    private $path;
 
     private function __construct()
     {
@@ -19,7 +18,6 @@ class CodeContext
     public static function create(Source $source, int $offset)
     {
         $context = new self();
-        $context->path = $path;
         $context->source = $source;
         $context->offset = $offset;
 
@@ -34,10 +32,5 @@ class CodeContext
     public function getOffset(): int
     {
         return $this->offset;
-    }
-
-    public function getPath(): string
-    {
-        return $this->path;
     }
 }
