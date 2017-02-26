@@ -6,7 +6,8 @@ namespace Phpactor\Composer;
 
 use Phpactor\Generation\SnippetGeneratorInterface;
 use Composer\Autoload\ClassLoader;
-use Phpactor\Composer\ClassFqn;
+use DTL\WorseReflection\Location;
+use DTL\WorseReflection\ClassName;
 
 class ClassNameResolver
 {
@@ -20,7 +21,7 @@ class ClassNameResolver
         $this->classLoader = $classLoader;
     }
 
-    public function resolve(string $filePath): ClassFqn
+    public function resolve(Location $location): ClassName
     {
         $prefixes = array_merge(
             $this->classLoader->getPrefixes(),
@@ -30,7 +31,7 @@ class ClassNameResolver
 
         $map = [];
 
-        if (substr($filePath, 0, 1) === '/') {
+        if ($location->isAbsolute()) {
             throw new \InvalidArgumentException(sprintf(
                 'Do not support absolute paths.'
             ));
@@ -49,7 +50,7 @@ class ClassNameResolver
             foreach ($files as $file) {
                 $path = str_replace($cwd, '', realpath($file));
 
-                if (strpos($filePath, $path) === 0) {
+                if (strpos($location->getPath(), $path) === 0) {
                     if (null !== $bestLength && strlen($path) < $bestLength) {
                         continue;
                     }
@@ -58,7 +59,7 @@ class ClassNameResolver
                     $basePath = $path;
                     $bestLength = strlen($path);
 
-                    if ($filePath === $path) {
+                    if ($location->getPath() === $path) {
                         $isExact = true;
                         break 2; // we are done here
                     }
@@ -76,11 +77,11 @@ class ClassNameResolver
             $base .= '\\';
         }
 
-        $className = substr($filePath, strlen($basePath) + 1);
+        $className = substr($location->getPath(), strlen($basePath) + 1);
         $className = str_replace('/', '\\', $className);
         $className = $base . $className;
         $className = preg_replace('{\.(.+)$}', '', $className);
 
-        return ClassFqn::fromString($className);
+        return ClassName::fromString($className);
     }
 }

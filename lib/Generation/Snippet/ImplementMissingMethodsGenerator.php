@@ -2,28 +2,28 @@
 
 namespace Phpactor\Generation\Snippet;
 
-use BetterReflection\Reflector\ClassReflector;
 use Phpactor\CodeContext;
 use Phpactor\Util\ClassUtil;
 use BetterReflection\Reflection\ReflectionMethod;
 use Phpactor\Generation\SnippetGeneratorInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use DTL\WorseReflection\Reflector;
 
 class ImplementMissingMethodsGenerator implements SnippetGeneratorInterface
 {
     /**
      * @var ClassReflector
      */
-    private $classReflector;
+    private $reflector;
 
     /**
      * @var ClassUtil
      */
     private $classUtil;
 
-    public function __construct(ClassReflector $classReflector, ClassUtil $classUtil)
+    public function __construct(Reflector $reflector, ClassUtil $classUtil)
     {
-        $this->classReflector = $classReflector;
+        $this->reflector = $reflector;
         $this->classUtil = $classUtil;
     }
 
@@ -57,7 +57,7 @@ class ImplementMissingMethodsGenerator implements SnippetGeneratorInterface
 
     private function resolveMissingMethods(CodeContext $codeContext)
     {
-        $reflection = $this->classReflector->reflect(
+        $reflection = $this->reflector->reflectClass(
             $this->classUtil->getClassNameFromSource($codeContext->getSource())
         );
 

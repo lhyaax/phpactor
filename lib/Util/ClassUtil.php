@@ -5,10 +5,11 @@ namespace Phpactor\Util;
 use BetterReflection\Reflector\ClassReflector;
 use BetterReflection\SourceLocator\Type\SingleFileSourceLocator;
 use BetterReflection\SourceLocator\Type\StringSourceLocator;
+use DTL\WorseReflection\ClassName;
 
 class ClassUtil
 {
-    public function getClassNameFromFile(string $file): string
+    public function getClassNameFromFile(string $file): ClassName
     {
         $reflector = new ClassReflector(new SingleFileSourceLocator($file));
 
@@ -25,7 +26,7 @@ class ClassUtil
         return $class->getName();
     }
 
-    public function getClassNameFromSource(string $source)
+    public function getClassNameFromSource(string $source): ClassName
     {
         $reflector = new ClassReflector(new StringSourceLocator($source));
 

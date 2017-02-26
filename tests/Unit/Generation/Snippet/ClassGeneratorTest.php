@@ -5,8 +5,10 @@ namespace Phpactor\Tests\Unit\Generation\Snippet;
 use Phpactor\Composer\ClassNameResolver;
 use Phpactor\CodeContext;
 use Phpactor\Generation\Snippet\ClassGenerator;
-use Phpactor\Composer\ClassFqn;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use DTL\WorseReflection\Location;
+use DTL\WorseReflection\Source;
+use DTL\WorseReflection\ClassName;
 
 class ClassGeneratorTest extends \PHPUnit_Framework_TestCase
 {
@@ -31,14 +33,15 @@ class ClassGeneratorTest extends \PHPUnit_Framework_TestCase
      */
     public function testGenerate(array $options, $expectedSnippet)
     {
-        $filename = 'foo/foobar.php';
-        $this->resolver->resolve($filename)->willReturn(ClassFqn::fromString('Foo\\Bar'));
-
+        $source = Source::fromString('');
         $resolver = new OptionsResolver();
         $this->generator->configureOptions($resolver);
         $options = $resolver->resolve($options);
+        $this->resolver->resolve($source->getLocation())->willReturn(
+            ClassName::fromString('Foo\\Bar')
+        );
 
-        $snippet = $this->generator->generate(CodeContext::create($filename, '', 0), $options);
+        $snippet = $this->generator->generate(CodeContext::create($source, 0), $options);
         $this->assertEquals($expectedSnippet, $snippet);
     }
 

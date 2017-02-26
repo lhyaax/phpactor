@@ -7,7 +7,7 @@ use Composer\Autoload\ClassLoader;
 use Phpactor\CodeContext;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Phpactor\Composer\ClassNameResolver;
-use Phpactor\Composer\ClassFqn;
+use DTL\WorseReflection\ClassName;
 
 class ClassGenerator implements SnippetGeneratorInterface
 {
@@ -23,7 +23,7 @@ class ClassGenerator implements SnippetGeneratorInterface
 
     public function generate(CodeContext $codeContext, array $options): string
     {
-        $classFqn = $this->resolver->resolve($codeContext->getPath());
+        $classFqn = $this->resolver->resolve($codeContext->getSource()->getLocation());
 
         return $this->createSnippet($classFqn, $options['type']);
     }
@@ -34,12 +34,12 @@ class ClassGenerator implements SnippetGeneratorInterface
         $resolver->setAllowedValues('type', [ 'class', 'trait', 'interface' ]);
     }
 
-    private function createSnippet(ClassFqn $fqn, string $type)
+    private function createSnippet(ClassName $fqn, string $type)
     {
         $snippet = [];
         $snippet[] = '<?php';
         $snippet[] = '';
-        $snippet[] = 'namespace ' . $fqn->getNamespace() . ';';
+        $snippet[] = 'namespace ' . $fqn->getNamespaceName()->getFqn() . ';';
         $snippet[] = '';
         $snippet[] = sprintf('%s %s', $type, $fqn->getShortName());
         $snippet[] = '{';

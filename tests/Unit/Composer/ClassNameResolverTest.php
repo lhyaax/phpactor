@@ -4,7 +4,8 @@ namespace Phpactor\Tests\Unit\Composer;
 
 use Composer\Autoload\ClassLoader;
 use Phpactor\Composer\ClassNameResolver;
-use Phpactor\Composer\ClassFqn;
+use DTL\WorseReflection\Location;
+use DTL\WorseReflection\ClassName;
 
 class ClassNameResolverTest extends \PHPUnit_Framework_TestCase
 {
@@ -39,9 +40,9 @@ class ClassNameResolverTest extends \PHPUnit_Framework_TestCase
         $this->classLoader->getPrefixesPsr4()->willReturn($prefixes['psr-4']);
         $this->classLoader->getClassMap()->willReturn($prefixes['classmap']);
 
-        $classFqn = $this->classNameResolver->resolve($path);
+        $classFqn = $this->classNameResolver->resolve(Location::fromPath($path));
 
-        $this->assertEquals(ClassFqn::fromString($expectedClassName), $classFqn);
+        $this->assertEquals(ClassName::fromString($expectedClassName), $classFqn);
     }
 
     public function provideResolveClassNameFromFile()

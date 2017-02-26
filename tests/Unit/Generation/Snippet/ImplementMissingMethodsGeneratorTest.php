@@ -2,13 +2,12 @@
 
 namespace Phpactor\Tests\Unit\Generation\Snippet;
 
-use BetterReflection\Reflector\ClassReflector;
 use Phpactor\Generation\Snippet\ImplementMissingMethodsGenerator;
-use BetterReflection\Reflection\ReflectionMethod;
-use BetterReflection\Reflection\ReflectionClass;
 use Phpactor\Util\ClassUtil;
-use Zend\Code\Reflection\ClassReflection;
 use Phpactor\CodeContext;
+use DTL\WorseReflection\Reflector;
+use DTL\WorseReflection\Reflection\ReflectionClass;
+use DTL\WorseReflection\Reflection\ReflectionMethod;
 
 class ImplementMissingMethodsGeneratorTest extends \PHPUnit_Framework_TestCase
 {
@@ -28,18 +27,18 @@ class ImplementMissingMethodsGeneratorTest extends \PHPUnit_Framework_TestCase
     private $classUtil;
 
     /**
-     * @var ClassReflection
+     * @var ReflectionClass
      */
     private $interfaceReflection;
 
     /**
-     * @var ClassReflection
+     * @var ReflectionClass
      */
     private $classReflection;
 
     public function setUp()
     {
-        $this->reflector = $this->prophesize(ClassReflector::class);
+        $this->reflector = $this->prophesize(Reflector::class);
         $this->classUtil = $this->prophesize(ClassUtil::class);
         $this->generator = new ImplementMissingMethodsGenerator(
             $this->reflector->reveal(),
