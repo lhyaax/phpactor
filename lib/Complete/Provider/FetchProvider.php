@@ -54,6 +54,8 @@ class FetchProvider implements ProviderInterface
         $nodePath = $offset->getNode();
         $node = $nodePath->top();
 
+        // if this is a property fetch or method call then pop the last (and incomplete)
+        // element from the stack.
         if (
             $node instanceof Expr\PropertyFetch ||
             $node instanceof Expr\MethodCall
@@ -64,6 +66,24 @@ class FetchProvider implements ProviderInterface
             $nodePath = new NodePath($nodePath);
         }
 
+        $callingClassNode = $nodePath->seekBack(function ($node) {
+            if ($node instanceof ClassLike) {
+                return true;
+            }
+
+            return false;
+        });
+
+        // << extract calling class
+        $callingClassReflection = null;
+        if (null !== $callingClassNode) {
+            $callingClassName = $offset->getFrame()->getSourceContext()->resolveClassName(
+                ClassName::fromString($callingClassNode->name)
+            );
+            $callingClassReflection = $this->reflector->reflectClass($callingClassName);
+        }
+        //  extract calling class >>
+
         // oh jesus ...
         // use class of the const fetch
         if ($node instanceof Expr\ClassConstFetch) {
@@ -71,21 +91,15 @@ class FetchProvider implements ProviderInterface
             $className = $offset->getFrame()->getSourceContext()->resolveClassName($className);
 
             if ($className->getShortName() === 'self') {
-                $classNode = $nodePath->seekBack(function ($node) {
-                    if ($node instanceof ClassLike) {
-                        return true;
-                    }
+                if (null === $callingClassReflection) {
+                    throw new \Exception(
+                        'No calling class and self keyword was used.'
+                    );
+                }
 
-                    return false;
-                });
-
-                $className = ClassName::fromString($classNode->name);
-            } else {
-                $className = ClassName::fromParts($node->class->parts);
+                $className = $callingClassReflection->getName();
             }
             
-            $className = $offset->getFrame()->getSourceContext()->resolveClassName($className);
-
             $type = Type::class($className);
         } else {
             $type = $this->typeResolver->resolveParserNode($offset->getFrame(), $nodePath->top());
@@ -103,16 +117,22 @@ class FetchProvider implements ProviderInterface
         }
 
         // populate the suggestions with the classes members.
-        $this->populateSuggestions($nodePath->top(), $classReflection, $suggestions);
+        $this->populateSuggestions($nodePath->top(), $classReflection, $suggestions, $callingClassReflection);
     }
 
-    private function populateSuggestions(Node $node, ReflectionClass $reflectionClass, Suggestions $suggestions)
+    private function populateSuggestions(
+        Node $node,
+        ReflectionClass $reflectionClass,
+        Suggestions $suggestions,
+        ReflectionClass $callingClassReflection = null
+    )
     {
-        foreach ($reflectionClass->getVisibleProperties() as $property) {
+        $properties = $reflectionClass->getVisibleProperties($callingClassReflection);
+        foreach ($properties as $property) {
             $suggestions->add(Suggestion::create(
                 $property->getName(),
                 Suggestion::TYPE_PROPERTY,
-                null // $doc
+                sprintf('$%s %s', $property->getName(), (string) $property->getType())
             ));
         }
 
@@ -161,7 +181,8 @@ class FetchProvider implements ProviderInterface
         }
 
 
-        $doc = $method->getName() . '(' . implode(', ', $parts) . '): ' . (string) $method->getReturnType();
+        $doc = $method->getDocComment() . PHP_EOL;
+        $doc .= $method->getName() . '(' . implode(', ', $parts) . '): ' . (string) $method->getReturnType();
 
         return $doc;
     }

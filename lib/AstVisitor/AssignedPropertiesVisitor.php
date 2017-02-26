@@ -7,6 +7,9 @@ use PhpParser\Node\Expr;
 
 class AssignedPropertiesVisitor implements NodeVisitor
 {
+    /**
+     * @var array
+     */
     private $assignedProperties = [];
 
     /**
