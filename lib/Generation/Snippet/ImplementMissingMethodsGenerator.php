@@ -4,10 +4,10 @@ namespace Phpactor\Generation\Snippet;
 
 use Phpactor\CodeContext;
 use Phpactor\Util\ClassUtil;
-use BetterReflection\Reflection\ReflectionMethod;
 use Phpactor\Generation\SnippetGeneratorInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use DTL\WorseReflection\Reflector;
+use DTL\WorseReflection\Reflection\ReflectionMethod;
 
 class ImplementMissingMethodsGenerator implements SnippetGeneratorInterface
 {
@@ -39,7 +39,7 @@ class ImplementMissingMethodsGenerator implements SnippetGeneratorInterface
             $snippet[] = ' */';
             $snippet[] = sprintf(
                 '%s function %s(%s)',
-                $missingMethod->isProtected() ? 'protected' : 'public',
+                $missingMethod->getVisibility()->isProtected() ? 'protected' : 'public',
                 $missingMethod->getName(),
                 $this->getMethodArgs($missingMethod)
             );
@@ -61,7 +61,7 @@ class ImplementMissingMethodsGenerator implements SnippetGeneratorInterface
             $this->classUtil->getClassNameFromSource($codeContext->getSource())
         );
 
-        $missingMethods = array_filter($reflection->getMethods(), function ($method) {
+        $missingMethods = array_filter(iterator_to_array($reflection->getMethods()), function ($method) {
             return $method->isAbstract() || $method->getDeclaringClass()->isInterface();
         });
 

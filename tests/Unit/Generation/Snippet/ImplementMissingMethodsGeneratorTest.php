@@ -8,6 +8,10 @@ use Phpactor\CodeContext;
 use DTL\WorseReflection\Reflector;
 use DTL\WorseReflection\Reflection\ReflectionClass;
 use DTL\WorseReflection\Reflection\ReflectionMethod;
+use DTL\WorseReflection\Visibility;
+use DTL\WorseReflection\Source;
+use DTL\WorseReflection\ClassName;
+use DTL\WorseReflection\Reflection\Collection\ReflectionMethodCollection;
 
 class ImplementMissingMethodsGeneratorTest extends \PHPUnit_Framework_TestCase
 {
@@ -58,19 +62,21 @@ class ImplementMissingMethodsGeneratorTest extends \PHPUnit_Framework_TestCase
      */
     public function testAddMissing(array $methodConfigs, string $expected)
     {
-        $this->classUtil->getClassNameFromSource('somesource')->willReturn('FooClass');
-        $this->reflector->reflect('FooClass')->willReturn(
+        $source = Source::fromString('asd');
+        $className = ClassName::fromString('FooClass');
+        $this->classUtil->getClassNameFromSource($source)->willReturn($className);
+        $this->reflector->reflectClass($className)->willReturn(
             $this->classReflection->reveal()
         );
 
         $methods = [];
         foreach ($methodConfigs as $methodName => $methodConfig) {
-            $methods[] = $this->createMethod($methodName, $methodConfig);
+            $methods[] = $this->createMethod($methodName, $methodConfig)->reveal();
         }
 
-        $this->classReflection->getMethods()->willReturn($methods);
+        $this->classReflection->getMethods()->willReturn(new ReflectionMethodCollection('method', $methods));
 
-        $snippet = $this->generator->generate(CodeContext::create('somefile', 'somesource', 1234), []);
+        $snippet = $this->generator->generate(CodeContext::create($source, 1234), []);
 
         $this->assertEquals($expected . PHP_EOL, $snippet);
     }
@@ -149,7 +155,13 @@ EOT
 
         $method = $this->prophesize(ReflectionMethod::class);
 
-        $method->isProtected()->willReturn($options['is_protected']);
+        $visibility = Visibility::public();
+
+        if ($options['is_protected']) {
+            $visibility = Visibility::protected();
+        }
+
+        $method->getVisibility()->willReturn($visibility);
         $method->isAbstract()->willReturn($options['is_abstract']);
         $method->getName()->willReturn($name);
         $method->getDeclaringClass()->willReturn(

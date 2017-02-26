@@ -4,11 +4,8 @@ namespace Phpactor\Tests\Unit\Generation\Snippet;
 
 use Phpactor\Generation\Snippet\MissingPropertiesGenerator;
 use Phpactor\CodeContext;
-use BetterReflection\Reflector\ClassReflector;
 use Phpactor\Util\ClassUtil;
-use BetterReflection\Reflection\ReflectionClass;
 use PhpParser\Node\Stmt\Class_;
-use BetterReflection\Reflection\ReflectionProperty;
 use Phpactor\AstVisitor\AssignedPropertiesVisitor;
 use Prophecy\Argument;
 use PhpParser\Node\Expr\Assign;
@@ -17,6 +14,7 @@ use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Scalar\DNumber;
 use PhpParser\Node\Scalar\LNumber;
 use PhpParser\Node\Expr\New_;
+use DTL\WorseReflection\Reflector;
 
 class MissingPropertiesGeneratorTest extends \PHPUnit_Framework_TestCase
 {
@@ -52,9 +50,8 @@ class MissingPropertiesGeneratorTest extends \PHPUnit_Framework_TestCase
 
     public function setUp()
     {
-        $this->reflector = $this->prophesize(ClassReflector::class);
+        $this->reflector = $this->prophesize(Reflector::class);
         $this->classUtil = $this->prophesize(ClassUtil::class);
-        $this->assignedPropertiesVisitor = $this->prophesize(AssignedPropertiesVisitor::class);
 
         $this->generator = new MissingPropertiesGenerator(
             $this->reflector->reveal(),

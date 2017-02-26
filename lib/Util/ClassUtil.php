@@ -6,6 +6,7 @@ use BetterReflection\Reflector\ClassReflector;
 use BetterReflection\SourceLocator\Type\SingleFileSourceLocator;
 use BetterReflection\SourceLocator\Type\StringSourceLocator;
 use DTL\WorseReflection\ClassName;
+use DTL\WorseReflection\Source;
 
 class ClassUtil
 {
@@ -26,9 +27,9 @@ class ClassUtil
         return $class->getName();
     }
 
-    public function getClassNameFromSource(string $source): ClassName
+    public function getClassNameFromSource(Source $source): ClassName
     {
-        $reflector = new ClassReflector(new StringSourceLocator($source));
+        $reflector = new ClassReflector(new StringSourceLocator($source->getSource()));
 
         $classes = $reflector->getAllClasses();
 

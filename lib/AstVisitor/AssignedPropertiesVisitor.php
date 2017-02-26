@@ -7,9 +7,6 @@ use PhpParser\Node\Expr;
 
 class AssignedPropertiesVisitor implements NodeVisitor
 {
-    /**
-     * @var array
-     */
     private $assignedProperties = [];
 
     /**
@@ -18,6 +15,7 @@ class AssignedPropertiesVisitor implements NodeVisitor
     public function beforeTraverse(array $nodes)
     {
     }
+    
     
     /**
      * {@inheritDoc}
