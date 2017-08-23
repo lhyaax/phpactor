@@ -225,6 +225,13 @@ function! phpactor#GotoDefinition()
     let out = phpactor#Exec(command)
     let results = json_decode(out)
 
+    let cur_pos = getcurpos()
+    let cur_pos[0] = bufnr('%')
+    if !exists('s:phpactor_jump_stack')
+        let s:phpactor_jump_stack = []
+    endif
+    call add(s:phpactor_jump_stack, cur_pos)
+
     if results['symbol_type'] == 'method'
         if (empty(results['class_type_path']))
             echo "Could not determine type of containing class"
@@ -627,3 +634,18 @@ function! phpactor#NamespaceInsert()
     exec ":normal! i" . phpactor#NamespaceGet()
 endfunction
 
+""""""""""""""""
+" Jump back
+""""""""""""""""
+function! phpactor#JumpBack() "{{{"
+    if !exists('s:phpactor_jump_stack') || len(s:phpactor_jump_stack) == 0
+	return
+    endif
+
+    let prev_pos = s:phpactor_jump_stack[-1]
+    let prev_buf = prev_pos[0]
+    let prev_pos[0] = 0
+    unlet s:phpactor_jump_stack[-1]
+    exec 'buffer '.prev_buf
+    call setpos('.', prev_pos)
+endfunction "}}}"
