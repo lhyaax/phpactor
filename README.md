@@ -1,5 +1,5 @@
 
-fork form phpactor/phpactor.
+fork from phpactor/phpactor.
 
 
 and to .vimrc
